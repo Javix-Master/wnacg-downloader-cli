@@ -1,13 +1,20 @@
 # WNACG 绅士漫畫下載器 (Python CLI 版)
 
-**原專案**：https://github.com/lanyeeee/wnacg-downloader (Tauri GUI + Rust)
+## 基於 / Based On
 
-本專案為 **CLI 版本**，由 Hermes 協助製作：
+本專案**基於**以下開源專案的架構與設計理念重新實作：
 
-- 使用 **uv** 進行 Python 環境與依賴管理
-- 純 **argparse** 命令列界面（無 GUI）
-- 核心搜尋 / 資訊 / 下載 / 匯出邏輯完整實作
-- 支援多執行緒圖片並行下載、進度條、元資料儲存、CBZ / PDF 匯出
+| 原始專案 | 說明 |
+|----------|------|
+| [lanyeeee/wnacg-downloader](https://github.com/lanyeeee/wnacg-downloader) | WNACG 下載器（Tauri GUI + Rust），提供完整的 API 分析、下載流程與匯出功能參考 |
+
+本專案為其 **Python CLI 重生版**，由 Hermes Agent 協助實作：
+
+- 語言：**Python 3.11+**（替代 Rust）
+- 界面：**argparse CLI**（替代 Tauri GUI）
+- 套件管理：**uv**（替代 Cargo）
+- 核心功能完整移植：搜尋 / 資訊 / 下載 / 匯出（CBZ + PDF + ComicInfo.xml）
+- 新增：多執行緒圖片並行下載、進度條、元資料儲存、`recover_deleted_list.py` 缺失恢復輔助腳本
 - 專為「缺失漫畫恢復」（missmission）優化，同時可作為一般下載工具
 
 ---
@@ -169,6 +176,11 @@ wnacg-downloader-python_绅士漫畫下載器/
 │       ├── downloader.py       # 下載引擎 + 並行 + 進度
 │       ├── exporter.py         # CBZ / PDF 匯出 + ComicInfo.xml
 │       └── utils.py
+├── skills/                     # Hermes Agent Skills（本專案內建）
+│   ├── README.md
+│   └── wnacg-hermes-guided-recovery/
+│       ├── SKILL.md            # 5 步驟引導恢復流程
+│       └── references/         # 批次準備模式 + 執行陷阱
 └── .python-version
 ```
 
@@ -197,8 +209,10 @@ env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg --help
 
 ## 相關資源
 
+- **原始專案**：[lanyeeee/wnacg-downloader](https://github.com/lanyeeee/wnacg-downloader)（Tauri GUI + Rust）
+- **本專案 GitHub**：[Javix-Master/wnacg-downloader-python](https://github.com/Javix-Master/wnacg-downloader-python)
 - missmission 清單與 recovered：`develop_軟體開發/missmission/`
-- Hermes 引導恢復流程：載入 skill `wnacg-hermes-guided-recovery`
+- **Hermes 引導恢復流程**：**已內建於本專案** — 見 `skills/wnacg-hermes-guided-recovery/SKILL.md`（5 步驟精準 pipeline + 參考文件）
 - 原始 Rust GUI 參考：同目錄下的 `wnacg-downloader/`（僅供研究）
 
 **本工具為完整可運作的 CLI 版本**，已上傳至 Nextcloud Project 適當位置（tools_工具開發）。

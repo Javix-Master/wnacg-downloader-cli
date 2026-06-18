@@ -1,7 +1,7 @@
 [project]
 name = "wnacg-downloader"
 version = "0.1.0"
-description = "WNACG 绅士漫画下载器 - Python CLI 版本 (使用 uv + argparse)"
+description = "WNACG 绅士漫畫下載器 - Python CLI 版本 (基於 lanyeeee/wnacg-downloader)"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -11,6 +11,10 @@ dependencies = [
     "lxml>=6.1.1",
     "tqdm>=4.68.2",
 ]
+
+[project.urls]
+Repository = "https://github.com/Javix-Master/wnacg-downloader-python"
+"Original (Rust GUI)" = "https://github.com/lanyeeee/wnacg-downloader"
 
 [project.scripts]
 wnacg = "wnacg_downloader.cli:main"

@@ -19,12 +19,9 @@ class Config:
     comic_concurrency: int = 2  # not heavily used in CLI
     img_download_interval_sec: int = 1
     comic_download_interval_sec: int = 0
+    img_max_retries: int = 3  # 單張圖片下載失敗時的重試次數
     use_original_filename: bool = False
     # download_format not fully implemented, always save original or jpg
-
-    def __post_init__(self):
-        # Ensure dirs are Path friendly
-        pass
 
     @property
     def download_path(self) -> Path:

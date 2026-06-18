@@ -2,6 +2,7 @@
 
 import json
 import re
+import time
 from dataclasses import dataclass, field
 from typing import List, Optional
 
@@ -229,7 +230,6 @@ class WnacgClient:
         img_list = self.get_img_list(comic_id)
 
         soup = BeautifulSoup(html, "lxml")
-        doc_html = str(soup)
 
         # id from feed link
         feed_link = soup.select_one('head > link[href*="/feed-index-aid-"]')
@@ -356,14 +356,37 @@ class WnacgClient:
         username = username_el.get_text(strip=True) if username_el else "unknown"
         return UserProfile(username=username)
 
-    def download_image(self, url: str, referer: Optional[str] = None) -> bytes:
-        """下载单张图片，返回 bytes"""
+    def download_image(self, url: str, referer: Optional[str] = None, max_retries: int = 3) -> bytes:
+        """下载单张图片，返回 bytes。
+
+        失败时自动重试 max_retries 次：
+        - 429 (限速/IP 被封)：退避较久后重试 (5s * attempt)。
+        - 超时 / 连线错误 / 5xx：短退避后重试 (1.5s * attempt)。
+        - 其他 4xx：直接抛出，不重试。
+        """
         headers = {"Referer": referer or f"{self.base_url}/"}
-        resp = self.client.get(url, headers=headers, timeout=60.0)
-        if resp.status_code == 429:
-            raise RuntimeError("IP 被封，请降低并发或增加间隔")
-        resp.raise_for_status()
-        return resp.content
+        last_err: Optional[Exception] = None
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                resp = self.client.get(url, headers=headers, timeout=60.0)
+                if resp.status_code == 429:
+                    last_err = RuntimeError("HTTP 429 (IP 被限速)")
+                    time.sleep(5 * attempt)
+                    continue
+                resp.raise_for_status()
+                return resp.content
+            except httpx.HTTPStatusError as e:
+                last_err = e
+                if e.response.status_code >= 500:
+                    time.sleep(1.5 * attempt)
+                    continue
+                raise  # 4xx (非 429) 无重试意义
+            except (httpx.TimeoutException, httpx.TransportError) as e:
+                last_err = e
+                time.sleep(1.5 * attempt)
+
+        raise RuntimeError(f"下载失败 (重试 {max_retries} 次后放弃): {last_err}")
 
     def close(self):
         self.client.close()

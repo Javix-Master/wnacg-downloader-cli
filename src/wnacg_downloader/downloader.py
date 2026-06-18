@@ -2,6 +2,7 @@
 
 import json
 import shutil
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
@@ -30,8 +31,11 @@ class Downloader:
         ensure_dir(self.config.download_path)
         ensure_dir(self.config.export_path)
 
-    def download_comic(self, comic: Comic, force: bool = False) -> Path:
-        """下载整本漫画，返回最终目录路径"""
+    def download_comic(self, comic: Comic, force: bool = False, show_progress: bool = True) -> Path:
+        """下载整本漫画，返回最终目录路径。
+
+        若全部图片下载失败 (零成功)，抛出 RuntimeError，便于上层以 exit code 反映失败。
+        """
         title = comic.title
         download_dir = self.config.download_path
         final_dir = get_final_dir(download_dir, title)
@@ -86,7 +90,7 @@ class Downloader:
                 for idx, url, base, _ in tasks
             }
 
-            with tqdm(total=total, desc=title[:30], unit="img") as pbar:
+            with tqdm(total=total, desc=title[:30], unit="img", disable=not show_progress) as pbar:
                 for future in as_completed(future_to_task):
                     idx, url, base = future_to_task[future]
                     try:
@@ -96,7 +100,7 @@ class Downloader:
                         else:
                             failed.append((idx, url))
                     except Exception as e:
-                        print(f"  下载图片失败 [{idx+1}]: {e}")
+                        print(f"  下载图片失败 [{idx+1}]: {e}", file=sys.stderr)
                         failed.append((idx, url))
                     pbar.update(1)
 
@@ -107,11 +111,11 @@ class Downloader:
         print(f"[{title}] 下载完成: 成功 {success_count}/{total}")
 
         if len(failed) > 0:
-            print(f"  失败 {len(failed)} 张: {failed[:3]}...")
+            print(f"  失败 {len(failed)} 张: {failed[:3]}...", file=sys.stderr)
 
         if success_count == 0:
-            print(f"[{title}] 下载失败，没有成功图片")
-            return temp_dir  # 保留临时以便检查
+            # 保留临时目录以便检查，并以异常向上层反映失败 (供 exit code 使用)
+            raise RuntimeError(f"[{title}] 下载失败，没有成功图片 (临时目录: {temp_dir})")
 
         # 全部成功则重命名
         if final_dir.exists():
@@ -135,7 +139,7 @@ class Downloader:
                 if (temp_dir / f"{base_name}{ext}").exists():
                     return True
 
-            data = self.client.download_image(url)
+            data = self.client.download_image(url, max_retries=self.config.img_max_retries)
 
             # 猜测扩展 (简单从 content-type 或 url)
             ext = self._guess_ext(data, url)
@@ -144,7 +148,7 @@ class Downloader:
             save_path.write_bytes(data)
             return True
         except Exception as e:
-            print(f"    图片 {idx+1}/{total} 下载失败: {e}")
+            print(f"    图片 {idx+1}/{total} 下载失败: {e}", file=sys.stderr)
             return False
 
     def _guess_ext(self, data: bytes, url: str) -> str:
@@ -174,12 +178,12 @@ class Downloader:
             encoding="utf-8"
         )
 
-    def download_by_id(self, comic_id: int, force: bool = False) -> Optional[Path]:
+    def download_by_id(self, comic_id: int, force: bool = False, show_progress: bool = True) -> Optional[Path]:
         print(f"正在获取漫画信息 ID={comic_id} ...")
         comic = self.client.get_comic(comic_id)
         print(f"标题: {comic.title}")
         print(f"分类: {comic.category} | 页数: {comic.image_count}")
-        return self.download_comic(comic, force=force)
+        return self.download_comic(comic, force=force, show_progress=show_progress)
 
 
 def main_download_test():

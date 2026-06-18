@@ -38,7 +38,7 @@ from wnacg_downloader.downloader import Downloader
 from wnacg_downloader.config import load_config
 
 
-def load_deleted_titles(manifest_list: Optional[str] = None) -> list[str]:
+def load_deleted_titles(manifest_list: Optional[str] = None) -> tuple[list[str], Path]:
     if manifest_list:
         list_file = Path(manifest_list).expanduser().resolve()
     else:

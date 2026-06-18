@@ -9,7 +9,11 @@ from .client import WnacgClient
 from .config import Config, load_config, save_config
 from .downloader import Downloader
 from .exporter import export_comic
-from .utils import filename_filter
+
+
+def eprint(*args, **kwargs):
+    """印出错误讯息到 stderr。"""
+    print(*args, file=sys.stderr, **kwargs)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -57,6 +61,9 @@ def create_parser() -> argparse.ArgumentParser:
     p_dl.add_argument("--dir", "-d", type=str, help="覆盖下載目录")
     p_dl.add_argument("--force", "-f", action="store_true", help="强制重新下載 (忽略已存在)")
     p_dl.add_argument("--concurrency", "-c", type=int, help="覆盖图片并发数")
+    p_dl.add_argument("--comic-interval", type=int, help="覆盖漫畫间下載间隔秒 (批量时建议300)")
+    p_dl.add_argument("--retries", type=int, help="覆盖单张图片下載失败重试次数 (默认3)")
+    p_dl.add_argument("--no-progress", action="store_true", help="关闭进度条 (适合 log / agent / cron)")
     p_dl.add_argument("--list", "-l", type=str, help="从文件批量下載 ID (每行一个 ID)")
     p_dl.set_defaults(func=cmd_download)
 
@@ -130,17 +137,21 @@ def cmd_login(args: argparse.Namespace):
         save_config(cfg)
         print("Cookie 已保存到配置，可用于 shelf 等需要登录的功能。")
     except Exception as e:
-        print(f"登录失败: {e}")
+        eprint(f"登录失败: {e}")
         sys.exit(1)
 
 
 def cmd_search(args: argparse.Namespace):
     client = WnacgClient()
     print(f"搜索: {args.keyword} (page={args.page}) ...")
-    if args.tag:
-        result = client.search_by_tag(args.keyword, args.page)
-    else:
-        result = client.search_by_keyword(args.keyword, args.page)
+    try:
+        if args.tag:
+            result = client.search_by_tag(args.keyword, args.page)
+        else:
+            result = client.search_by_keyword(args.keyword, args.page)
+    except Exception as e:
+        eprint(f"搜索失败: {e}")
+        sys.exit(1)
 
     print(f"结果: 第 {result.current_page}/{result.total_page} 页，共 {len(result.comics)} 项")
     print("-" * 80)
@@ -153,7 +164,11 @@ def cmd_search(args: argparse.Namespace):
 
 def cmd_info(args: argparse.Namespace):
     client = WnacgClient()
-    comic = client.get_comic(args.comic_id)
+    try:
+        comic = client.get_comic(args.comic_id)
+    except Exception as e:
+        eprint(f"获取漫畫信息失败 (ID={args.comic_id}): {e}")
+        sys.exit(1)
     print(f"ID: {comic.id}")
     print(f"标题: {comic.title}")
     print(f"分类: {comic.category}")
@@ -176,7 +191,12 @@ def cmd_download(args: argparse.Namespace):
         cfg.download_dir = args.dir
     if args.concurrency:
         cfg.img_concurrency = args.concurrency
+    if args.comic_interval is not None:
+        cfg.comic_download_interval_sec = args.comic_interval
+    if args.retries is not None:
+        cfg.img_max_retries = args.retries
 
+    show_progress = not args.no_progress
     client = WnacgClient(cfg)
     downloader = Downloader(client, cfg)
 
@@ -189,24 +209,34 @@ def cmd_download(args: argparse.Namespace):
                 if line and line.isdigit():
                     ids.append(int(line))
         print(f"从 {args.list} 读取到 {len(ids)} 个 ID，开始批量下載...")
+        failed_ids = []
         for cid in ids:
             try:
-                downloader.download_by_id(cid, force=args.force)
+                downloader.download_by_id(cid, force=args.force, show_progress=show_progress)
             except Exception as e:
-                print(f"ID {cid} 下載失败: {e}")
+                eprint(f"ID {cid} 下載失败: {e}")
+                failed_ids.append(cid)
+        if failed_ids:
+            eprint(f"批量下載完成，但有 {len(failed_ids)}/{len(ids)} 个失败: {failed_ids}")
+            sys.exit(1)
+        print(f"批量下載完成: 全部 {len(ids)} 个成功")
         return
 
     if args.comic_id is None:
-        print("请提供 comic_id 或使用 --list")
+        eprint("请提供 comic_id 或使用 --list")
         sys.exit(1)
 
-    downloader.download_by_id(args.comic_id, force=args.force)
+    try:
+        downloader.download_by_id(args.comic_id, force=args.force, show_progress=show_progress)
+    except Exception as e:
+        eprint(f"下載失败 (ID={args.comic_id}): {e}")
+        sys.exit(1)
 
 
 def cmd_shelf(args: argparse.Namespace):
     cfg = load_config()
     if not cfg.cookie:
-        print("请先使用 `wnacg login` 或 `wnacg config --set-cookie` 设置 cookie")
+        eprint("请先使用 `wnacg login` 或 `wnacg config --set-cookie` 设置 cookie")
         sys.exit(1)
     client = WnacgClient(cfg)
     client.set_cookie(cfg.cookie)
@@ -219,10 +249,14 @@ def cmd_shelf(args: argparse.Namespace):
 def cmd_export(args: argparse.Namespace):
     comic_dir = Path(args.comic_dir).expanduser().resolve()
     if not comic_dir.is_dir():
-        print(f"错误: {comic_dir} 不是目录")
+        eprint(f"错误: {comic_dir} 不是目录")
         sys.exit(1)
     out = Path(args.out).expanduser().resolve() if args.out else None
-    export_comic(comic_dir, fmt=args.format, export_dir=out)
+    try:
+        export_comic(comic_dir, fmt=args.format, export_dir=out)
+    except Exception as e:
+        eprint(f"导出失败: {e}")
+        sys.exit(1)
 
 
 def main(argv: Optional[list] = None):

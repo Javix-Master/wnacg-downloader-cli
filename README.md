@@ -1,6 +1,15 @@
 # WNACG Downloader CLI
 
-**專為 CLI 工作流設計的 WNACG 下載工具，深度整合 Hermes Agent & OpenClaw**
+**純命令列的 WNACG 漫畫搜尋／下載工具** — 以 `uv` + `argparse` 打造，輸出可程式化解析，適合 terminal / SSH / cron / agent 工作流。
+
+## 功能
+
+- 🔎 **搜尋**：關鍵字搜尋、標籤搜尋，分頁瀏覽
+- 📖 **詳情**：查看單本的標題、分類、頁數、標籤、圖片清單
+- ⬇️ **下載**：多執行緒下載整本，單張失敗自動重試＋退避，429 自動降速
+- 📚 **批量**：從 ID 清單一次下載多本，每本間可設間隔避免被封
+- 📤 **匯出**：CBZ（含 ComicInfo.xml，相容 Kavita 等閱讀器）或 PDF
+- 🤖 **Agent 友善**：`--no-progress` 關閉進度條、錯誤輸出至 stderr、失敗以非 0 exit code 反映
 
 ## 基於 / Based On
 
@@ -8,169 +17,147 @@
 |----------|------|
 | [lanyeeee/wnacg-downloader](https://github.com/lanyeeee/wnacg-downloader) | WNACG 下載器（Tauri GUI + Rust），API 分析與下載流程參考 |
 
-本專案為其 **CLI 重生版**，由 Hermes Agent 協助實作，專注以下目標：
-
-- 🖥️ **純 CLI**：無 GUI，完美適配 terminal / SSH / cron / agent 工作流
-- 🤖 **Agent 友善**：所有輸出可程式化解析，exit code 語意明確
-- 📦 **uv 管理**：零系統污染，一行 `uv sync` 即用
-- 🔁 **批量可靠**：支援 ID 清單批量下載 + comic 間隔 + 並行控制
-- 📤 **多重匯出**：CBZ（含 ComicInfo.xml）+ PDF
-- 🧩 **內建 Skill**：隨專案附 Hermes 引導恢復流程，開箱即用
+本專案為其 **CLI 重生版**，專注純命令列、批量可靠與 agent 整合。
 
 ---
 
-## Hermes Agent / OpenClaw 快速整合
+## 安裝
 
-本工具從設計之初就以 agent 使用場景為核心考量。
-
-### 一行指令整合
+前提：已安裝 [uv](https://docs.astral.sh/uv/)。
 
 ```bash
-# 在 Hermes skill / cron job / OpenClaw 中直接呼叫
 cd /path/to/wnacg-downloader-cli
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg search "關鍵字" --page 1
+
+# 同步依賴並建立虛擬環境
+uv sync
+
+# 驗證
+uv run wnacg --help
 ```
 
-### Agent 友善特性
-
-| 特性 | 說明 |
-|------|------|
-| **結構化輸出** | search / info 輸出易於 grep / jq 解析 |
-| **明確 exit code** | 0 = 成功，非 0 = 失敗（含錯誤訊息到 stderr） |
-| **無互動提示** | 所有操作可無人值守執行 |
-| **進度條可控** | `--no-progress` 關閉 tqdm（適合 log 輸出） |
-| **--force** | 覆蓋已下載，確保冪等 |
-
-### 專案內建 Skills
-
-本專案隨附完整 Hermes Skills，可直接載入使用：
-
-```
-skills/
-├── README.md                           # Skills 總覽
-├── wnacg-hermes-guided-recovery/       # 5 步驟精準恢復 pipeline
-│   ├── SKILL.md
-│   └── references/
-└── examples/                           # 🆕 快速上手範例
-    ├── search-and-download.md          # 搜尋 + 下載範例
-    └── batch-from-list.md              # 從清單批量下載範例
-```
+> **受管 venv 環境（如某些 agent 容器）**：若 shell 預設帶有 `VIRTUAL_ENV` / `SSL_CERT_FILE` 而干擾 uv，可在指令前加 `env -u VIRTUAL_ENV -u SSL_CERT_FILE`，例如
+> `env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg --help`
 
 ---
 
-## 安裝與啟動
+## 使用方法
 
-前提：已安裝 [uv](https://docs.astral.sh/uv/)
-
-```bash
-# 進入專案目錄
-cd /home/tsengagent/Nextcloud/Project/tools_工具開發/wnacg-downloader-cli
-
-# 首次同步依賴
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv sync
-
-# 驗證 CLI
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg --help
-```
-
-**重要**：所有指令必須加上 `env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run ...`
-
----
-
-## 完整使用方法
-
-### 1. 搜尋漫畫
+### 1. 搜尋
 
 ```bash
 # 關鍵字搜尋
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg search "艦これ" --page 1
+uv run wnacg search "艦これ" --page 1
 
-# 標籤搜尋
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg search "ブルーアーカイブ" --tag
-
-# Agent 模式（關閉進度條，輸出精簡）
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg search "艦これ" --no-progress
+# 標籤搜尋（keyword 作為 tag 名）
+uv run wnacg search "ブルーアーカイブ" --tag
 ```
 
-輸出格式（agent 可解析）：
+輸出格式（每筆三行，可用 grep / awk / Python 解析）：
+
 ```
-ID      標題                               分類        頁數
-288694  ある作品名                          同人誌      32P
+ID:  288694 | 作品標題……
+     同人誌 | 32P | …additional info…
+     cover: https://…
 ```
 
-### 2. 查看詳細資訊
+> 取所有 ID：`uv run wnacg search "關鍵字" | grep -oP '^ID:\s*\K\d+'`
+
+### 2. 查看詳情
 
 ```bash
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg info 288694
+uv run wnacg info 288694
 ```
 
-輸出含：ID、標題、分類、頁數、標籤、圖片 URL 清單。
+輸出：ID、標題、分類、頁數、封面、標籤、圖片 URL 清單（前 5 + 最後 1）。
 
 ### 3. 下載單本
 
 ```bash
-# 指定目錄 + 並行數
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg download 288694 --dir /tmp/wnacg --concurrency 3
+# 基本
+uv run wnacg download 288694
 
-# 強制覆蓋 + 無進度條（agent 模式）
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg download 288694 --force --no-progress
+# 指定目錄 + 並行數 + 重試次數
+uv run wnacg download 288694 --dir /tmp/wnacg --concurrency 3 --retries 5
+
+# 強制重新下載 + 關閉進度條（agent / cron 模式）
+uv run wnacg download 288694 --force --no-progress
 ```
+
+下載流程：先存到 `<目錄>/.下载中-<標題>/`，全部完成後才改名為 `<目錄>/<標題>/`，避免中斷殘留半成品。**若整本零張成功，exit code 為非 0。**
 
 ### 4. 批量下載（從 ID 清單）
 
 ```bash
-# ids.txt 每行一個漫畫 ID
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg download \
-  --list /tmp/ids.txt --concurrency 2 --dir /tmp/wnacg-batch
+# ids.txt 每行一個漫畫 ID（# 開頭與非數字行會被忽略）
+uv run wnacg download \
+  --list ids.txt \
+  --concurrency 2 \
+  --comic-interval 300 \
+  --dir /tmp/wnacg-batch
 ```
+
+任一本失敗時，批量結束後會列出失敗 ID 並以非 0 exit code 結束。
 
 ### 5. 匯出 CBZ / PDF
 
 ```bash
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg export "/tmp/wnacg/作品標題" --format cbz
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg export "/tmp/wnacg/作品標題" --format pdf
+uv run wnacg export "/tmp/wnacg/作品標題" --format cbz
+uv run wnacg export "/tmp/wnacg/作品標題" --format pdf --out /tmp/exports
 ```
+
+CBZ 會自動讀取下載目錄內的 `元数据.json` 產生 `ComicInfo.xml`。
 
 ### 6. 配置管理
 
+設定存於 `~/.config/wnacg-downloader/config.json`。
+
 ```bash
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg config --show
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg config --set-comic-interval 300
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg config --set-img-concurrency 4
+# 查看
+uv run wnacg config --show
+
+# 設定（可組合）
+uv run wnacg config --set-domain www.wn06.cfd
+uv run wnacg config --set-download-dir ~/wnacg-downloads
+uv run wnacg config --set-img-concurrency 4
+uv run wnacg config --set-comic-interval 300   # 批量時建議 300s（5 分鐘）
+```
+
+`download` 的 `--concurrency` / `--comic-interval` / `--retries` 為單次覆蓋，不寫入設定檔。
+
+### 7. 登入（選用，僅 shelf 需要）
+
+```bash
+uv run wnacg login -u <帳號> -p <密碼>   # 成功後 cookie 存入設定
+uv run wnacg shelf 0 --page 1            # 列出書架
 ```
 
 ---
 
-## Hermes Skill 範例
+## 參數速查
 
-### 快速搜尋並下載
+| 子命令 | 主要參數 |
+|--------|----------|
+| `search <keyword>` | `--page/-p`、`--tag` |
+| `info <comic_id>` | — |
+| `download [comic_id]` | `--dir/-d`、`--force/-f`、`--concurrency/-c`、`--comic-interval`、`--retries`、`--no-progress`、`--list/-l` |
+| `export <comic_dir>` | `--format/-f {cbz,pdf}`、`--out/-o` |
+| `config` | `--show`、`--set-cookie`、`--set-download-dir`、`--set-export-dir`、`--set-domain`、`--set-img-concurrency`、`--set-img-interval`、`--set-comic-interval` |
+| `login` | `--username/-u`、`--password/-p` |
+| `shelf [shelf_id]` | `--page` |
 
-```bash
-# 在 Hermes 中，只需告訴 agent：
-# 「幫我用 wnacg 搜尋『艦これ』第一頁，找出最新的同人誌並下載」
-# Agent 會：
-# 1. wnacg search "艦これ" --page 1
-# 2. 解析輸出，找到目標 ID
-# 3. wnacg download <ID> --dir /tmp/wnacg --concurrency 3
-# 4. wnacg export <DIR> --format cbz
-```
+---
 
-完整範例見 `skills/examples/search-and-download.md`
+## Agent / 自動化整合
 
-### 從清單批量恢復（missmission）
+| 特性 | 說明 |
+|------|------|
+| `--no-progress` | 關閉 tqdm 進度條，適合 log / cron / agent |
+| Exit code | 0 = 成功；下載失敗（單本零成功、或批量有失敗項）= 非 0 |
+| stderr | 錯誤與失敗摘要輸出至 stderr，正常結果至 stdout |
+| `--force` | 覆蓋已下載，確保冪等 |
+| 自動重試 | 單張圖片逾時／5xx／429 自動退避重試（`--retries` 調整） |
 
-```bash
-# 使用內建 recover_deleted_list.py 產生 ID 清單
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run python recover_deleted_list.py \
-  --manifest-list /path/to/誤刪清單.txt \
-  --search-top 2 --output /tmp/ids.txt
-
-# Agent 驗證 + 批量下載
-env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg download \
-  --list /tmp/ids.txt --concurrency 2 --dir /tmp/wnacg-recover
-```
-
-完整流程見 `skills/examples/batch-from-list.md` 及內建 `wnacg-hermes-guided-recovery` skill。
+附帶 Skill（見 `skills/`）提供「搜尋 → 判斷目標 → 下載 → 匯出」的引導式流程，可載入 agent 使用。
 
 ---
 
@@ -180,42 +167,36 @@ env -u VIRTUAL_ENV -u SSL_CERT_FILE uv run wnacg download \
 wnacg-downloader-cli/
 ├── pyproject.toml
 ├── README.md
-├── recover_deleted_list.py     # 缺失恢復輔助腳本
-├── src/
-│   └── wnacg_downloader/
-│       ├── cli.py              # CLI 入口（argparse）
-│       ├── client.py           # WNACG API / HTML 抓取
-│       ├── config.py           # 配置讀寫（~/.config/wnacg-downloader/）
-│       ├── downloader.py       # 多執行緒下載引擎
-│       ├── exporter.py         # CBZ / PDF 匯出 + ComicInfo.xml
-│       └── utils.py            # 共用工具
-├── skills/                     # Hermes Agent Skills
-│   ├── README.md
-│   ├── wnacg-hermes-guided-recovery/
-│   │   ├── SKILL.md            # 5 步驟精準恢復 pipeline
-│   │   └── references/
-│   └── examples/
-│       ├── search-and-download.md   # 搜尋+下載範例
-│       └── batch-from-list.md       # 批量恢復範例
-└── .python-version
+├── recover_deleted_list.py     # 選用：從標題清單批量產生建議 ID（搭配 --list 下載）
+├── src/wnacg_downloader/
+│   ├── cli.py                  # CLI 入口（argparse）
+│   ├── client.py               # WNACG API / HTML 抓取
+│   ├── config.py               # 配置讀寫
+│   ├── downloader.py           # 多執行緒下載引擎（重試／退避）
+│   ├── exporter.py             # CBZ / PDF 匯出 + ComicInfo.xml
+│   └── utils.py                # 共用工具
+└── skills/                     # Agent Skill（搜尋下載引導流程）
+    ├── README.md
+    ├── wnacg-search-download/
+    └── examples/
 ```
 
 ---
 
 ## 注意事項
 
-- **下載目錄**：建議先用 `/tmp/wnacg-xxx`，完成後再搬移或 export
-- **並行與間隔**：大量下載請設 concurrency=2~3 + comic_interval=300s
-- **Agent 模式**：加 `--no-progress` 關閉 tqdm，適合 log / cron
-- **僅供個人學習研究使用**
+- **下載目錄**：建議先用暫存目錄（如 `/tmp/wnacg-*`），完成後再 export / 搬移。
+- **並行與間隔**：大量或大本（>200 頁）建議 `--concurrency 2~3` + `--comic-interval 300`，降低被封風險。
+- **站點域名**：站點會更換域名，必要時用 `config --set-domain` 更新。
+- **Windows + 含中文路徑**：editable 安裝的 `.pth` 在 cp950 終端可能解碼失敗；建議將專案放在純 ASCII 路徑，或設 `PYTHONUTF8=1`。
+- **僅供個人學習研究使用。**
 
 ---
 
 ## 相關資源
 
-- **原始專案**：[lanyeeee/wnacg-downloader](https://github.com/lanyeeee/wnacg-downloader)
-- **GitHub**：[Javix-Master/wnacg-downloader-cli](https://github.com/Javix-Master/wnacg-downloader-cli)
-- **Hermes Skill**：`skills/wnacg-hermes-guided-recovery/SKILL.md`
-- **快速範例**：`skills/examples/`
-
-**本工具為完整可運作的 CLI 版本，專為 agent 工作流優化。**
+- 原始專案：[lanyeeee/wnacg-downloader](https://github.com/lanyeeee/wnacg-downloader)
+- 本專案：[Javix-Master/wnacg-downloader-cli](https://github.com/Javix-Master/wnacg-downloader-cli)
+- Skill：`skills/wnacg-search-download/SKILL.md`
+</content>
+</invoke>

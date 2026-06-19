@@ -34,8 +34,6 @@ for kw in ["關鍵字A", "關鍵字B"]:
         print(f"{c.id} | {c.title[:60]}")
 ```
 
-> 選用：專案根目錄的 `recover_deleted_list.py` 可從一份「標題清單檔」自動搜尋並輸出建議 ID 清單，再餵給 `--list`。
-
 ### Step 2：驗證（建議）
 
 對相近候選用 `wnacg info <ID>` 或瀏覽器確認標題／標籤／頁數，再把確定的 ID 留在清單裡。
@@ -76,4 +74,3 @@ done
 - 大於 200 頁的本子用 `--concurrency 2`。
 - 失敗的本子可加 `--force` 對該 ID 重跑補齊。
 - 受管 venv 環境若 uv 受干擾，指令前加 `env -u VIRTUAL_ENV -u SSL_CERT_FILE`。
-</content>

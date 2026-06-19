@@ -1,7 +1,7 @@
 [project]
 name = "wnacg-downloader-cli"
 version = "0.1.0"
-description = "WNACG 绅士漫畫下載器 CLI 版 — 專為 Hermes Agent / OpenClaw 友善設計 (基於 lanyeeee/wnacg-downloader)"
+description = "WNACG 紳士漫畫下載器 CLI 版 — 純命令列搜尋／下載工具 (基於 lanyeeee/wnacg-downloader)"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

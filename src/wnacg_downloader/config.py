@@ -1,7 +1,7 @@
-"""配置管理"""
+"""設定管理"""
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 from typing import Optional
 
@@ -51,14 +51,15 @@ def load_config() -> Config:
     if path.exists():
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-            # Merge with defaults for new fields
-            defaults = asdict(Config())
-            for k, v in defaults.items():
-                if k not in data:
-                    data[k] = v
-            return Config(**data)
+            # 只取 dataclass 已知欄位；缺少的欄位由 Config 預設值補上。
+            known = {f.name for f in fields(Config)}
+            unknown = set(data) - known
+            if unknown:
+                print(f"警告: 設定檔含未知欄位，已忽略: {sorted(unknown)}")
+            filtered = {k: v for k, v in data.items() if k in known}
+            return Config(**filtered)
         except Exception as e:
-            print(f"警告: 加载配置失败 ({e})，使用默认配置")
+            print(f"警告: 載入設定失敗 ({e})，使用預設設定")
     return Config()
 
 
@@ -67,4 +68,4 @@ def save_config(config: Config) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     data = asdict(config)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"配置已保存到 {path}")
+    print(f"設定已儲存到 {path}")

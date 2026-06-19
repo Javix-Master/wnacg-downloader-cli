@@ -37,4 +37,3 @@ uv run wnacg --help
 ```
 
 詳細使用說明請見專案 [README.md](../README.md)。
-</content>

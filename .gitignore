@@ -44,6 +44,6 @@ Thumbs.db
 *.zip
 *.cbz
 *.pdf
-.downloading-*
+.下載中-*
 tmp/
 temp/

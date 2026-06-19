@@ -77,4 +77,3 @@ uv run wnacg search "關鍵字" | grep -oP '^ID:\s*\K\d+'
 - Agent / cron 模式加 `--no-progress`。
 - 以 exit code 判斷成敗（0 = 成功），錯誤訊息在 stderr。
 - 受管 venv 環境若 uv 受干擾，指令前加 `env -u VIRTUAL_ENV -u SSL_CERT_FILE`。
-</content>

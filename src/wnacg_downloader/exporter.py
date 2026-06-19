@@ -1,4 +1,4 @@
-"""导出为 CBZ / PDF"""
+"""匯出為 CBZ / PDF"""
 
 import xml.etree.ElementTree as ET
 import zipfile
@@ -12,11 +12,11 @@ from .utils import ensure_dir, is_image_file
 
 
 def generate_comicinfo_xml(comic_title: str, category: str = "", tags: List[str] = None, intro: str = "", page_count: int = 0) -> str:
-    """生成简单的 ComicInfo.xml (Kavita / 漫画阅读器兼容)"""
+    """產生簡單的 ComicInfo.xml (Kavita / 漫畫閱讀器相容)"""
     root = ET.Element("ComicInfo")
     ET.SubElement(root, "Manga").text = "Yes"
     ET.SubElement(root, "Series").text = comic_title
-    ET.SubElement(root, "Publisher").text = "绅士漫画"
+    ET.SubElement(root, "Publisher").text = "紳士漫畫"
     ET.SubElement(root, "Genre").text = category
     if tags:
         ET.SubElement(root, "Tags").text = ", ".join(tags)
@@ -34,7 +34,7 @@ def generate_comicinfo_xml(comic_title: str, category: str = "", tags: List[str]
 
 
 def export_cbz(comic_dir: Path, export_dir: Optional[Path] = None, config: Optional[Config] = None) -> Path:
-    """将已下载的漫画目录导出为 .cbz (zip + ComicInfo.xml)"""
+    """將已下載的漫畫目錄匯出為 .cbz (zip + ComicInfo.xml)"""
     config = config or load_config()
     export_base = export_dir or config.export_path
     ensure_dir(export_base)
@@ -48,10 +48,10 @@ def export_cbz(comic_dir: Path, export_dir: Optional[Path] = None, config: Optio
     )
 
     if not images:
-        raise ValueError(f"{comic_dir} 中没有图片文件")
+        raise ValueError(f"{comic_dir} 中沒有圖片檔案")
 
-    # 尝试读取元数据
-    meta_path = comic_dir / "元数据.json"
+    # 嘗試讀取元數據
+    meta_path = comic_dir / "元數據.json"
     tags = []
     category = ""
     intro = ""
@@ -66,18 +66,18 @@ def export_cbz(comic_dir: Path, export_dir: Optional[Path] = None, config: Optio
     xml_content = generate_comicinfo_xml(title, category, tags, intro, page_count)
 
     with zipfile.ZipFile(cbz_path, "w", compression=zipfile.ZIP_STORED) as zf:
-        # 写入 ComicInfo.xml
+        # 寫入 ComicInfo.xml
         zf.writestr("ComicInfo.xml", xml_content)
 
         for img in images:
             zf.write(img, arcname=img.name)
 
-    print(f"CBZ 已导出: {cbz_path}")
+    print(f"CBZ 已匯出: {cbz_path}")
     return cbz_path
 
 
 def export_pdf(comic_dir: Path, export_dir: Optional[Path] = None, config: Optional[Config] = None) -> Path:
-    """使用 img2pdf 将图片目录导出为 PDF (每页一图，保持原始尺寸)"""
+    """使用 img2pdf 將圖片目錄匯出為 PDF (每頁一圖，保持原始尺寸)"""
     config = config or load_config()
     export_base = export_dir or config.export_path
     ensure_dir(export_base)
@@ -91,13 +91,13 @@ def export_pdf(comic_dir: Path, export_dir: Optional[Path] = None, config: Optio
     )
 
     if not images:
-        raise ValueError(f"{comic_dir} 中没有图片文件")
+        raise ValueError(f"{comic_dir} 中沒有圖片檔案")
 
-    print(f"正在生成 PDF: {len(images)} 页 ...")
+    print(f"正在產生 PDF: {len(images)} 頁 ...")
     with open(pdf_path, "wb") as f:
         f.write(img2pdf.convert(images))
 
-    print(f"PDF 已导出: {pdf_path}")
+    print(f"PDF 已匯出: {pdf_path}")
     return pdf_path
 
 
@@ -108,4 +108,4 @@ def export_comic(comic_dir: Path, fmt: str = "cbz", **kwargs):
     elif fmt in ("pdf", "p"):
         return export_pdf(comic_dir, **kwargs)
     else:
-        raise ValueError("支持的格式: cbz, pdf")
+        raise ValueError("支援的格式: cbz, pdf")

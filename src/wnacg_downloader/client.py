@@ -1,4 +1,4 @@
-"""WNACG API 客户端 (基于 HTML 抓取)"""
+"""WNACG API 客戶端 (基於 HTML 抓取)"""
 
 import json
 import re
@@ -97,7 +97,7 @@ class WnacgClient:
         return resp
 
     def login(self, username: str, password: str) -> str:
-        """登录并返回 cookie 字符串"""
+        """登入並回傳 cookie 字串"""
         form = {
             "login_name": username,
             "login_pass": password,
@@ -106,16 +106,16 @@ class WnacgClient:
         try:
             data = resp.json()
             if not data.get("ret"):
-                raise RuntimeError(f"登录失败: {data}")
+                raise RuntimeError(f"登入失敗: {data}")
         except Exception:
-            # 某些情况下可能不是json
+            # 某些情況下可能不是 json
             pass
 
-        # 获取 set-cookie
+        # 取得 set-cookie
         cookie = resp.headers.get("set-cookie")
         if not cookie:
-            # 尝试从响应体或其他
-            raise RuntimeError("登录响应中没有 set-cookie")
+            # 嘗試從回應主體或其他
+            raise RuntimeError("登入回應中沒有 set-cookie")
 
         # 更新 client 的 cookie
         self.client.headers["Cookie"] = cookie
@@ -151,7 +151,7 @@ class WnacgClient:
                 comic = self._parse_comic_in_search(li)
                 comics.append(comic)
             except Exception as e:
-                print(f"解析搜索结果中的一项失败: {e}")
+                print(f"解析搜尋結果中的一項失敗: {e}")
                 continue
 
         # current page
@@ -234,14 +234,14 @@ class WnacgClient:
         # id from feed link
         feed_link = soup.select_one('head > link[href*="/feed-index-aid-"]')
         if not feed_link:
-            raise ValueError("找不到漫画ID的 link")
+            raise ValueError("找不到漫畫ID的 link")
         href = feed_link.get("href", "")
         id_str = href.replace("/feed-index-aid-", "").replace(".html", "")
         cid = int(id_str)
 
         h2 = soup.select_one("#bodywrap > h2")
         if not h2:
-            raise ValueError("找不到标题 h2")
+            raise ValueError("找不到標題 h2")
         title = filename_filter(h2.get_text(strip=True))
 
         # cover
@@ -260,7 +260,7 @@ class WnacgClient:
         # labels
         labels = soup.select(".asTBcell.uwconn > label")
         if len(labels) < 2:
-            raise ValueError("找不到分类或页数 label")
+            raise ValueError("找不到分類或頁數 label")
         cat_text = labels[0].get_text(strip=True)
         category = cat_text.replace("分類：", "").strip() if "分類：" in cat_text else cat_text
 
@@ -301,12 +301,12 @@ class WnacgClient:
 
         line = next((l for l in body.split("\n") if "var imglist =" in l), None)
         if not line:
-            raise ValueError("没有找到包含 var imglist = 的行")
+            raise ValueError("沒有找到包含 var imglist = 的行")
 
         start = line.find("[")
         end = line.rfind("]") + 1
         if start == -1 or end <= start:
-            raise ValueError("无法定位 imglist JSON")
+            raise ValueError("無法定位 imglist JSON")
 
         json_str = line[start:end]
         json_str = (
@@ -320,7 +320,7 @@ class WnacgClient:
         try:
             raw_list = json.loads(json_str)
         except json.JSONDecodeError as e:
-            raise ValueError(f"解析 imglist JSON 失败: {e}\n片段: {json_str[:200]}") from e
+            raise ValueError(f"解析 imglist JSON 失敗: {e}\n片段: {json_str[:200]}") from e
 
         img_list = []
         for item in raw_list:
@@ -334,35 +334,35 @@ class WnacgClient:
         return img_list
 
     def get_shelf(self, shelf_id: int, page_num: int = 1) -> List[ComicInSearch]:
-        """获取书架，返回搜索结果格式的列表"""
+        """取得書架，回傳搜尋結果格式的清單"""
         if not self.config.cookie:
-            raise RuntimeError("需要先登录 (设置 cookie)")
+            raise RuntimeError("需要先登入 (設定 cookie)")
         url = f"/users-users_fav-page-{page_num}-c-{shelf_id}.html"
         headers = {"Cookie": self.config.cookie}
         resp = self._get(url, headers=headers)
-        # 复用 search 解析，但 book shelf 可能结构类似
-        # 为简单起见，这里简化返回
+        # 複用 search 解析，但 book shelf 結構可能類似
+        # 為求簡單，這裡簡化回傳
         result = self._parse_search_result(resp.text, is_search_by_tag=True)
         return result.comics
 
     def get_user_profile(self) -> UserProfile:
         if not self.config.cookie:
-            raise RuntimeError("需要登录")
+            raise RuntimeError("需要登入")
         resp = self._get("/users.html", headers={"Cookie": self.config.cookie})
-        # 简单解析，实际可扩展
+        # 簡單解析，實際可擴充
         soup = BeautifulSoup(resp.text, "lxml")
-        # 假设有用户名显示
+        # 假設有使用者名稱顯示
         username_el = soup.select_one(".username") or soup.select_one("h2")
         username = username_el.get_text(strip=True) if username_el else "unknown"
         return UserProfile(username=username)
 
     def download_image(self, url: str, referer: Optional[str] = None, max_retries: int = 3) -> bytes:
-        """下载单张图片，返回 bytes。
+        """下載單張圖片，回傳 bytes。
 
-        失败时自动重试 max_retries 次：
-        - 429 (限速/IP 被封)：退避较久后重试 (5s * attempt)。
-        - 超时 / 连线错误 / 5xx：短退避后重试 (1.5s * attempt)。
-        - 其他 4xx：直接抛出，不重试。
+        失敗時自動重試 max_retries 次：
+        - 429 (限速/IP 被封)：退避較久後重試 (5s * attempt)。
+        - 逾時 / 連線錯誤 / 5xx：短退避後重試 (1.5s * attempt)。
+        - 其他 4xx：直接拋出，不重試。
         """
         headers = {"Referer": referer or f"{self.base_url}/"}
         last_err: Optional[Exception] = None
@@ -381,12 +381,12 @@ class WnacgClient:
                 if e.response.status_code >= 500:
                     time.sleep(1.5 * attempt)
                     continue
-                raise  # 4xx (非 429) 无重试意义
+                raise  # 4xx (非 429) 無重試意義
             except (httpx.TimeoutException, httpx.TransportError) as e:
                 last_err = e
                 time.sleep(1.5 * attempt)
 
-        raise RuntimeError(f"下载失败 (重试 {max_retries} 次后放弃): {last_err}")
+        raise RuntimeError(f"下載失敗 (重試 {max_retries} 次後放棄): {last_err}")
 
     def close(self):
         self.client.close()

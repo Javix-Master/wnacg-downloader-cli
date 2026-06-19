@@ -83,7 +83,7 @@ uv run wnacg download 288694 --dir /tmp/wnacg --concurrency 3 --retries 5
 uv run wnacg download 288694 --force --no-progress
 ```
 
-下載流程：先存到 `<目錄>/.下载中-<標題>/`，全部完成後才改名為 `<目錄>/<標題>/`，避免中斷殘留半成品。**若整本零張成功，exit code 為非 0。**
+下載流程：先存到 `<目錄>/.下載中-<標題>/`，全部完成後才改名為 `<目錄>/<標題>/`，避免中斷殘留半成品。**若整本零張成功，exit code 為非 0。**
 
 ### 4. 批量下載（從 ID 清單）
 
@@ -105,9 +105,9 @@ uv run wnacg export "/tmp/wnacg/作品標題" --format cbz
 uv run wnacg export "/tmp/wnacg/作品標題" --format pdf --out /tmp/exports
 ```
 
-CBZ 會自動讀取下載目錄內的 `元数据.json` 產生 `ComicInfo.xml`。
+CBZ 會自動讀取下載目錄內的 `元數據.json` 產生 `ComicInfo.xml`。
 
-### 6. 配置管理
+### 6. 設定管理
 
 設定存於 `~/.config/wnacg-downloader/config.json`。
 
@@ -118,9 +118,12 @@ uv run wnacg config --show
 # 設定（可組合）
 uv run wnacg config --set-domain www.wn06.cfd
 uv run wnacg config --set-download-dir ~/wnacg-downloads
-uv run wnacg config --set-img-concurrency 4
+uv run wnacg config --set-img-concurrency 3    # 圖片並行數
+uv run wnacg config --set-img-interval 1        # 每個並行槽的圖片間隔秒（見下方速率說明）
 uv run wnacg config --set-comic-interval 300   # 批量時建議 300s（5 分鐘）
 ```
+
+**圖片下載速率**：`img-concurrency` 與 `img-interval` 兼具——並行照跑，`img-interval` 是「每個並行槽每隔 N 秒發一張」，整體速率約 **`並行數 / 間隔` 張/秒**。例：`--set-img-concurrency 3` + `--set-img-interval 1` ≈ **3 張/秒**；`img-interval` 設 `0` 則不限速、全速併發。
 
 `download` 的 `--concurrency` / `--comic-interval` / `--retries` 為單次覆蓋，不寫入設定檔。
 
@@ -167,11 +170,10 @@ uv run wnacg shelf 0 --page 1            # 列出書架
 wnacg-downloader-cli/
 ├── pyproject.toml
 ├── README.md
-├── recover_deleted_list.py     # 選用：從標題清單批量產生建議 ID（搭配 --list 下載）
 ├── src/wnacg_downloader/
 │   ├── cli.py                  # CLI 入口（argparse）
 │   ├── client.py               # WNACG API / HTML 抓取
-│   ├── config.py               # 配置讀寫
+│   ├── config.py               # 設定讀寫
 │   ├── downloader.py           # 多執行緒下載引擎（重試／退避）
 │   ├── exporter.py             # CBZ / PDF 匯出 + ComicInfo.xml
 │   └── utils.py                # 共用工具
@@ -186,9 +188,9 @@ wnacg-downloader-cli/
 ## 注意事項
 
 - **下載目錄**：建議先用暫存目錄（如 `/tmp/wnacg-*`），完成後再 export / 搬移。
-- **並行與間隔**：大量或大本（>200 頁）建議 `--concurrency 2~3` + `--comic-interval 300`，降低被封風險。
+- **並行與間隔**：大量或大本（>200 頁）建議 `--concurrency 2~3` + `--comic-interval 300`，降低被封風險。圖片層級的速率由 `img-concurrency / img-interval` 決定（約 並行數/間隔 張/秒），需要更保守時調高 `img-interval`。
 - **站點域名**：站點會更換域名，必要時用 `config --set-domain` 更新。
-- **Windows + 含中文路徑**：editable 安裝的 `.pth` 在 cp950 終端可能解碼失敗；建議將專案放在純 ASCII 路徑，或設 `PYTHONUTF8=1`。
+- **Windows + 含中文路徑**：Python 3.11/3.12 的 `site` 模組以系統地區編碼（如 cp950）讀取 editable 安裝的 `.pth`，當專案路徑含中文時會在直譯器啟動就 `UnicodeDecodeError`（`PYTHONUTF8=1` 無效）。本專案已用 `.python-version` 釘定 **Python 3.13**（3.13 起 `.pth` 以 UTF-8 讀取）解決；`uv sync` 會自動取得 3.13。若想用更舊的 Python，請將專案放在純 ASCII 路徑。
 - **僅供個人學習研究使用。**
 
 ---
@@ -198,5 +200,3 @@ wnacg-downloader-cli/
 - 原始專案：[lanyeeee/wnacg-downloader](https://github.com/lanyeeee/wnacg-downloader)
 - 本專案：[Javix-Master/wnacg-downloader-cli](https://github.com/Javix-Master/wnacg-downloader-cli)
 - Skill：`skills/wnacg-search-download/SKILL.md`
-</content>
-</invoke>

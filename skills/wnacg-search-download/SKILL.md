@@ -57,10 +57,10 @@ uv run wnacg export "/tmp/wnacg/<作品標題>" --format cbz --out /tmp/exports
 下載成功與否會反映在 exit code（非 0 = 失敗）；錯誤輸出在 stderr。
 
 ## Reliability & Rate-Limit Discipline
-- **並行與間隔**：一般 `--concurrency 3`；大本（>200–300 頁）或重試時降到 `2`。批量務必加 `--comic-interval 300`（每本間隔 5 分鐘）。
+- **並行與間隔**：一般 `--concurrency 3`；大本（>200–300 頁）或重試時降到 `2`。批量務必加 `--comic-interval 300`（每本間隔 5 分鐘）。圖片層級速率約 `並行數 / img-interval` 張/秒，需更保守時用 `config --set-img-interval` 調高（細節見 reference）。
 - **429 / IP 被限速**：`download_image` 已內建退避重試（`--retries` 調整，預設 3）。若仍大量失敗，先暫停，稍後以更低並行重試。
 - **部分成功**：下載完成訊息會回報 `成功 N/total`；失敗張數列在 stderr。零成功才視為整本失敗（exit 非 0）。部分成功可加 `--force` 重跑補齊。
-- **暫存目錄**：下載過程在 `.下载中-<標題>/`，完成才改名；中斷後可安全重跑。
+- **暫存目錄**：下載過程在 `.下載中-<標題>/`，完成才改名；中斷後可安全重跑。
 
 ## Agent / Cron Integration
 - 加 `--no-progress` 關閉進度條，輸出更乾淨。
@@ -79,7 +79,6 @@ uv run wnacg export "/tmp/wnacg/<作品標題>" --format cbz --out /tmp/exports
 - 可靠性與限速操作細節：`references/reliability-and-rate-limits.md`
 - 批量準備模式：`references/batch-preparation-patterns.md`
 - CLI 完整參數：專案 `README.md`
-- 從標題清單批量產生建議 ID（選用）：專案根目錄 `recover_deleted_list.py`
 
 ## Usage Example (One Title)
 1. 使用者：「幫我下載 chiDOLM@STER シンデレラリトルガールズ」
@@ -88,4 +87,3 @@ uv run wnacg export "/tmp/wnacg/<作品標題>" --format cbz --out /tmp/exports
 4. `uv run wnacg info 311300` 確認標題／頁數／標籤吻合
 5. `uv run wnacg download 311300 --dir /tmp/wnacg --concurrency 3`
 6. （選用）`uv run wnacg export "/tmp/wnacg/<標題>" --format cbz`
-</content>
